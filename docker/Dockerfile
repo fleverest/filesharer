@@ -1,12 +1,5 @@
 FROM python:3-alpine
 
-RUN set -ex && \
-    apk add --update --no-cache libpq-dev && \
-    addgroup -S -g 1000 fileshare && \
-    adduser -S -u 1000 -s /bin/ash -G fileshare fileshare
-
-USER fileshare
-
 COPY --chown=fileshare:fileshare docker/entrypoint /entrypoint
 COPY --chown=fileshare:fileshare docker/start /start
 COPY --chown=fileshare:fileshare . /app
@@ -14,11 +7,18 @@ COPY --chown=fileshare:fileshare . /app
 WORKDIR /app
 
 RUN set -ex && \
-    pip install pipenv && \
-    export PATH=$PATH:/home/fileshare/.local/bin && \
-    pipenv install --system --deploy && \
-    chmod +x /entrypoint && \
-    chmod +x /start
+    apk add --no-cache --update libpq-dev && \
+    addgroup -S -g 1000 fileshare && \
+    adduser -S -u 1000 -s /bin/ash -G fileshare fileshare && \
+    apk add --no-cache --virtual .build-deps gcc musl-dev && \
+    su fileshare -c " \
+      pip install pipenv && \
+      export PATH=\$PATH:/home/fileshare/.local/bin && \
+      pipenv install --system --deploy" && \
+    apk del .build-deps gcc musl-dev && \
+    chmod +x /entrypoint /start
+
+USER fileshare
 
 ENTRYPOINT ["/entrypoint"]
 

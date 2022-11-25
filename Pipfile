@@ -5,15 +5,15 @@ name = "pypi"
 
 [packages]
 fastapi = "*"
-uvicorn = {extras = ["standard"], version = "*"}
-strawberry-graphql = {extras = ["fastapi"], version = "*"}
 sqlalchemy = "*"
-python-environ = "*"
 pydantic = "*"
 minio = "*"
+psycopg2 = "*"
+strawberry-graphql = {extras = ["fastapi"], version = "*"}
+uvicorn = {extras = ["standard"], version = "*"}
 
 [dev-packages]
 
 [requires]
-python_version = "3.10"
-python_full_version = "3.10.8"
+python_version = "3.11"
+python_full_version = "3.11.0"

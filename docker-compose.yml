@@ -18,7 +18,7 @@ services:
     image: fileshare-local
     env_file:
       - .env
-    command: ["uvicorn", "init:app", "--port 5000", "--host 0.0.0.0"]
+    command: ["uvicorn", "init:app", "--port", "5000", "--host", "0.0.0.0", "--reload"]
     volumes:
       - .:/app
     ports:
