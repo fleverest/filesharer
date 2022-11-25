@@ -1,12 +1,10 @@
 # TODO: Use uuid for postgres
 
-from datetime import datetime
 from sqlalchemy import Column, Integer, DateTime, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from fileshare.database.engine import Base
-from fileshare.minio.storage import storage
 
 class File(Base):
 
@@ -38,6 +36,20 @@ class Share(Base):
     file_id = Column(Integer, ForeignKey("file.id"))
     file = relationship("File", back_populates="shares")
 
+    key = Column(String, null=False)
     expiry = Column(DateTime)
     download_limit = Column(Integer, null=False)
     download_count = Column(Integer, null=False)
+
+class Upload(Base):
+
+    """A Model for upload keys"""
+
+    __tablename__ = "upload"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created = Column(DateTime, server_default=func.utcnow())
+    updated = Column(DateTime, onupdate=func.utcnow())
+
+    key = Column(String, null=False)
+    expiry = Column(DateTime)

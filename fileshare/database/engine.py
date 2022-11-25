@@ -6,11 +6,15 @@ from sqlalchemy.orm import sessionmaker
 
 dbc = settings.database
 
-SQLALCHEMY_DATABASE_URL = dbc.protocol + "://"
 creds = dbc.username
 if dbc.username and dbc.password:
     creds += ":" + dbc.password + "@"
-SQLALCHEMY_DATABASE_URL = f"{dbc.protocol}://{creds}{dbc.hostname}/{dbc.database}"
+
+port = ""
+if dbc.port:
+    port = ":" + dbc.port
+
+SQLALCHEMY_DATABASE_URL = f"{dbc.protocol}://{creds}{dbc.hostname}{port}/{dbc.database}"
 
 connect_args = {}
 if dbc.protocol == "sqlite":

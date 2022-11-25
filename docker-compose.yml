@@ -1,0 +1,28 @@
+version: '3'
+services:
+
+  postgres:
+    image: postgres:15
+    env_file:
+      - .env
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr"]
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - 5432:5432
+
+  fileshare:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: fileshare-local
+    env_file:
+      - .env
+    command: ["uvicorn", "init:app", "--port 5000", "--host 0.0.0.0"]
+    volumes:
+      - .:/app
+    ports:
+      - 5000:5000
+
+volumes:
+  pgdata: {}

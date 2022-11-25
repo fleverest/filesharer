@@ -9,3 +9,4 @@ class DatabaseSettings(BaseModel):
     username: str
     password: str
     database: str
+    port: str
