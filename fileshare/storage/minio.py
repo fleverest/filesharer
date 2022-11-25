@@ -20,7 +20,28 @@ class BucketDoesNotExist(Exception):
 
 class MinioStorage:
 
-    """A storage interface using Minio"""
+    """A storage interface using Minio.
+
+    Attributes:
+      session -- The underlying minio client session.
+
+    Methods:
+        delete(name) -- Deletes from the object store by name.
+
+        list(prefix, recursive) -- Lists objects (by name) relative to a given
+            prefix. The `recursive` indicates whether we should list recursively
+            into sub-directories.
+
+        presigned_get(name, expires) -- Returns a presigned url for fetching
+            `name` from the object store. The link will expire after a timedelta
+            `expires`, or by default (when `expires==None`) the value of the
+            `MINIO__DOWNLOAD_EXPIRE` environment variable (in seconds).
+
+        presigned_put(name, expires) -- Returns a presigned url for putting
+            an object on the store with name `name`. The link expires after a
+            timedelta passed via `expires`, or by default it will expire after
+            `MINIO__UPLOAD_EXPIRE` seconds.
+    """
 
     def __init__(self, conf: MinioSettings | None = None) -> None:
         if not conf:
@@ -55,6 +76,13 @@ class MinioStorage:
     def delete(self, name: str) -> None:
         """Deletes a stored object"""
         self.session.remove_object(self._bucket, name)
+
+    def list(self, prefix: str, recursive: bool = False) -> list[str]:
+        """Lists objects (by name) relative to a given prefix"""
+        return list(map(
+            lambda o: o.object_name[prefix.rfind("/")+1:],
+            self.session.list_objects(self._bucket, prefix, recursive=recursive)
+        ))
 
     def presigned_get(self, name: str, expires: timedelta | None = None) -> str:
         """Creates a signed download url for the object"""
