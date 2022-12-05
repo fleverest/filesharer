@@ -2,6 +2,7 @@ from pydantic import BaseSettings, Field
 
 from fileshare.settings.database import DatabaseSettings
 from fileshare.settings.minio import MinioSettings
+from fileshare.settings.graphql import GraphQLSettings
 
 class Settings(BaseSettings):
 
@@ -9,6 +10,7 @@ class Settings(BaseSettings):
 
     minio: MinioSettings
     database: DatabaseSettings
+    graphql: GraphQLSettings
 
     class Config:
         env_prefix = ""

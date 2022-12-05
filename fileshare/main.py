@@ -1,7 +1,10 @@
 from fastapi import FastAPI # , Depends
 
 #from fileshare.dependencies import example
+from fileshare.database import engine
 from fileshare.graphql.schema import graphql_app
+
+engine.Base.metadata.create_all(bind=engine.engine)
 
 app = FastAPI(dependencies=[])
 
