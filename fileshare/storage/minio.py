@@ -123,11 +123,15 @@ class MinioStorage:
         except ValueError as e:
             raise FilePutError("Could not upload file to storage backend", self._bucket, name, e.args)
 
-    def presigned_get(self, name: str, expires: timedelta | None = None) -> str:
+    def presigned_get(self, object_name: str, file_name: str | None = None, expires: timedelta | None = None) -> str:
         """Creates a signed download url for the object"""
         if not expires:
             expires = self._download_expire
-        return self.session.presigned_get_object(self._bucket, name, expires)
+        extra_query_params = {}
+        if file_name is not None and file_name != object_name:
+            extra_query_params["response-content-disposition"] = f"attachment; filename=\"{file_name}\""
+
+        return self.session.presigned_get_object(self._bucket, object_name, expires)
 
     def presigned_put(self, name: str, expires: timedelta | None = None) -> str:
         """Creates a signed upload url for the object"""
