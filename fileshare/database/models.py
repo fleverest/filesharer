@@ -1,11 +1,17 @@
 import uuid
 
-from sqlalchemy import Column, Integer, DateTime, String, Boolean, ForeignKey
+from sqlalchemy import UUID, Column, Computed, Index, Integer, DateTime, String, Boolean, ForeignKey, literal, select, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy_utils.types.ts_vector import TSVectorType
 
 from fileshare.database.engine import Base
+
+
+def to_tsvector_ix(*columns):
+    s = " || ' ' || ".join(columns)
+    return func.to_tsvector(literal('english'), text(s))
 
 class File(Base):
 
@@ -15,24 +21,54 @@ class File(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     created = Column(DateTime, server_default=func.now())
-    updated = Column(DateTime, onupdate=func.now())
+    updated = Column(DateTime, onupdate=func.now(), nullable=True)
 
-    file_name = Column(String, nullable=False, unique=True)
     object_name = Column(String, nullable=False, unique=True)
     active = Column(Boolean, default=True)
 
     shares = relationship("Share", cascade="all, delete", passive_deletes=True, back_populates="file")
+
+    tsvector = Column(TSVectorType("tsvector", regconfig="english"), Computed("to_tsvector('english', regexp_replace(\"object_name\", '[^\w]+', ' ', 'g'))", persisted=True))
+
+    __table_args__ = (
+        Index(
+            'idx_file_fts',
+            tsvector,
+            postgresql_using='gin'
+        ),
+    )
+
+    @hybrid_property
+    def share_count(self):
+        return len(self.shares)
+
+    @share_count.expression
+    def share_count(cls):
+        return select(func.count(Share.id))\
+                .where(Share.file_id == cls.id)\
+                .label("share_count")
+
+    @hybrid_property
+    def download_count(self):
+        return sum(share.download_count for share in self.shares)
+
+    @download_count.expression
+    def download_count(cls):
+        return select(func.coalesce(func.sum(Share.download_count), 0))\
+                .where(Share.file_id == cls.id)\
+                .label("download_count")
 
     def as_dict(self):
         return {
             "id": self.id,
             "created": self.created,
             "updated": self.updated,
-            "file_name": self.file_name,
+            "file_name": self.object_name,
             "active": self.active,
+            "share_count": self.share_count,
+            "download_count": self.download_count,
+            "shares": self.shares,
         }
-
-file_search_fields = [File.file_name, File.object_name]
 
 class Share(Base):
 
@@ -42,7 +78,7 @@ class Share(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     created = Column(DateTime, server_default=func.now())
-    updated = Column(DateTime, onupdate=func.now())
+    updated = Column(DateTime, onupdate=func.now(), nullable=True)
 
     file_id = Column(UUID(as_uuid=True), ForeignKey("file.id"))
     file = relationship("File", back_populates="shares")
@@ -60,7 +96,7 @@ class Upload(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     created = Column(DateTime, server_default=func.now())
-    updated = Column(DateTime, onupdate=func.now())
+    updated = Column(DateTime, onupdate=func.now(), nullable=True)
 
     key = Column(String, nullable=False)
     expiry = Column(DateTime)

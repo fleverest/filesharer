@@ -2,7 +2,7 @@ from fileshare.settings import settings
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, configure_mappers
 
 dbc = settings.database
 
@@ -21,6 +21,7 @@ if dbc.protocol == "sqlite":
     connect_args["check_same_thread"] = False
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args = connect_args)
+configure_mappers()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
