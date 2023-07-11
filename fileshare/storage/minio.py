@@ -1,4 +1,5 @@
 from minio import Minio
+from minio.deleteobjects import DeleteObject
 from datetime import timedelta
 
 from fileshare.settings import settings
@@ -17,6 +18,35 @@ class BucketDoesNotExist(Exception):
         self.bucket = bucket
         super().__init__(self.message)
 
+class FilePutError(Exception):
+    """Exception raised when the client fails to put a new file into the bucket.
+
+    Attributes:
+        message -- An explanation of the error.
+        file_name -- The name of the file which could not be uploaded.
+        bucket -- The name of the bucket which the file could not be uploaded to.
+        minio_args -- The original minio error raised.
+    """
+    def __init__(self, message: str, bucket: str, file_name: str, args) -> None:
+        self.message = message
+        self.bucket = bucket
+        self.file_name = file_name
+        self.minio_args = args
+
+class FileDeleteError(Exception):
+    """Exception raised when the client fails to delete a file from the bucket.
+
+    Attributes:
+        message -- An explanation of the error.
+        filenames -- A list of files which could not be deleted.
+        bucket -- The name of the bucket from which the files could not be deleted.
+        minio_args -- The original minio errors.
+    """
+    def __init__(self, message: str, bucket: str, filenames: list[str], args) -> None:
+        self.message = message
+        self.bucket = bucket
+        self.filenames = filenames
+        self.minio_args = args
 
 class MinioStorage:
 
@@ -73,9 +103,11 @@ class MinioStorage:
 
         return self._session
 
-    def delete(self, name: str) -> None:
-        """Deletes a stored object"""
-        self.session.remove_object(self._bucket, name)
+    def delete(self, names: list[str]) -> None:
+        """Deletes stored objects"""
+        errors = list(self.session.remove_objects(self._bucket, [DeleteObject(name) for name in names]))
+        if (n_errors:=len(errors)) > 0:
+            raise FileDeleteError(f"{n_errors} file(s) could not be deleted.", self._bucket, list(map(lambda e: e.name, errors)), errors)
 
     def list(self, prefix: str, recursive: bool = False) -> list[str]:
         """Lists objects (by name) relative to a given prefix"""
@@ -83,6 +115,13 @@ class MinioStorage:
             lambda o: o.object_name[prefix.rfind("/")+1:],
             self.session.list_objects(self._bucket, prefix, recursive=recursive)
         ))
+
+    def put(self, name: str, data, size) -> None:
+        """Uploads a file to Minio backend"""
+        try:
+            self.session.put_object(self._bucket, name, data, size)
+        except ValueError as e:
+            raise FilePutError("Could not upload file to storage backend", self._bucket, name, e.args)
 
     def presigned_get(self, name: str, expires: timedelta | None = None) -> str:
         """Creates a signed download url for the object"""
