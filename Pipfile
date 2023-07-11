@@ -6,14 +6,15 @@ name = "pypi"
 [packages]
 fastapi = "*"
 sqlalchemy = "*"
-pydantic = "*"
 minio = "*"
+strawberry-graphql = "*"
+uvicorn = "*"
 psycopg2 = "*"
-strawberry-graphql = {extras = ["fastapi"], version = "*"}
-uvicorn = {extras = ["standard"], version = "*"}
+python-multipart = "*"
+sqlalchemy-utils = "*"
+sqlakeyset = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.11"
-python_full_version = "3.11.0"
