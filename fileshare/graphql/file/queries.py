@@ -1,18 +1,23 @@
-from sqlalchemy import text
 from sqlalchemy.orm import Query
 from sqlalchemy.sql import func
 import strawberry
 from uuid import UUID
 from strawberry.types import Info
-
-from sqlakeyset import select_page
+from base64 import b64encode, b64decode
+from sqlakeyset import get_page, unserialize_bookmark
 
 from fileshare.database.engine import get_db
-from fileshare.database.models import File, Share
+from fileshare.database.models import File
 from fileshare.graphql.file.inputs import FileFilterInput, FileSortField, FileSortInput
 from fileshare.graphql.file.types import FileType, FileNotFoundError
-from fileshare.graphql.pagination import CursorPaginator
-from fileshare.graphql.types import CountableConnection, OrderDirection, PageInfo, ErrorType, Edge
+from fileshare.graphql.types import CountableConnection, OrderDirection, PageInfo, Edge
+from fileshare.settings import settings
+
+
+def to_b64(bookmark: str) -> str:
+    return b64encode(bookmark.encode("utf-8")).decode("ascii")
+def from_b64(bookmark: str) -> str:
+    return b64decode(bookmark.encode("ascii")).decode("utf-8")
 
 def apply_file_filters(q: Query, filters: FileFilterInput | None) -> Query:
     """Applies graphql filter input to the SQLAlchemy queryset"""
@@ -41,7 +46,7 @@ def apply_file_sort(q: Query, sort: FileSortInput | None) -> Query:
     if not sort:
         sort = FileSortInput(direction=OrderDirection.ASC, field=FileSortField.CREATED)
 
-    return q.order_by(*[text(item) for item in sort.items])
+    return q.order_by(*sort.items)
 
 
 @strawberry.type
@@ -69,21 +74,48 @@ class FileQuery:
         info: Info,
         filter: FileFilterInput | None = None,
         sort: FileSortInput | None = None,
-        before: str | None = None,
         after: str | None = None,
-        first: int | None = None,
-        last: int | None = None
+        before: str | None = None,
     ) -> CountableConnection[FileType]:
 
         session = next(get_db())
 
         queryset = session.query(File)
-        queryset = apply_file_filters(queryset, filter)
+        if filter is not None:
+            queryset = apply_file_filters(queryset, filter)
         queryset = apply_file_sort(queryset, sort)
 
-        files = queryset.all()
+        if after:
+            page = get_page(
+                queryset,
+                per_page=settings.graphql.default_page_size,
+                after=unserialize_bookmark(from_b64(after)).place
+            )
+        elif before:
+            page = get_page(
+                queryset,
+                per_page=settings.graphql.default_page_size,
+                before=unserialize_bookmark(from_b64(before)).place
+            )
+        else:
+            page = get_page(
+                queryset,
+                per_page=settings.graphql.default_page_size
+            )
+        bookmark_items = list(page.paging.bookmark_items())
+
         return CountableConnection(
-            count=len(files),
-            page_info=PageInfo(has_next_page=False, has_previous_page=False, start_cursor="", end_cursor=""),
-            edges=[Edge(node=FileType(**file.as_dict()), cursor="") for file in files]
+            count=len(page),
+            page_info=PageInfo(
+                has_next_page=page.paging.has_next,
+                has_previous_page=page.paging.has_previous,
+                start_cursor=to_b64(bookmark_items[0][0]),
+                end_cursor=to_b64(bookmark_items[-1][0])
+            ),
+            edges=[
+                Edge(
+                    node=FileType(**file.as_dict()),
+                    cursor=to_b64(bookmark)
+                ) for bookmark, file in bookmark_items
+            ]
         )

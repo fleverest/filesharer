@@ -6,6 +6,9 @@ from uuid import UUID
 from fileshare.graphql.inputs import DateTimeRange, IntRange
 from fileshare.graphql.types import OrderDirection
 
+from sqlalchemy import desc, asc
+from fileshare.database.models import File
+
 @strawberry.input
 class FileFilterInput:
     id:                list[UUID] | None = None
@@ -19,13 +22,12 @@ class FileFilterInput:
 
 @strawberry.enum
 class FileSortField(Enum):
-    FILE_NAME      = ["file_name", "updated"]
-    OBJECT_NAME    = ["object_name", "updated"]
-    DOWNLOADS      = ["downloads", "updated"]
-    CREATED        = ["created"]
-    UPDATED        = ["updated"]
-    SHARE_COUNT    = ["share_count", "updated"]
-    DOWNLOAD_COUNT = ["download_count", "updated"]
+    FILE_NAME      = ["object_name", "updated", "created"]
+    DOWNLOADS      = ["downloads", "updated", "created"]
+    CREATED        = ["created", "updated"]
+    UPDATED        = ["updated", "created"]
+    SHARE_COUNT    = ["share_count", "updated", "created"]
+    DOWNLOAD_COUNT = ["download_count", "updated", "created"]
 
 @strawberry.input
 class FileSortInput:
@@ -34,10 +36,8 @@ class FileSortInput:
 
     @property
     def items(self) -> list[str]:
-        out = []
-        for value in self.field.value:
-            sorter = "file_" + value
-            if self.direction == OrderDirection.DESC:
-                sorter += " DESC"
-            out.append(sorter)
-        return out
+        args = []
+        order = desc if self.direction.value == "desc" else asc
+        for col in self.field.value:
+            args.append(order(getattr(File, col)))
+        return args

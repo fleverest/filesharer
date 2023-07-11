@@ -21,7 +21,7 @@ class File(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     created = Column(DateTime, server_default=func.now())
-    updated = Column(DateTime, onupdate=func.now(), nullable=True)
+    updated = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
     object_name = Column(String, nullable=False, unique=True)
     active = Column(Boolean, default=True)
@@ -78,7 +78,7 @@ class Share(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     created = Column(DateTime, server_default=func.now())
-    updated = Column(DateTime, onupdate=func.now(), nullable=True)
+    updated = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
     file_id = Column(UUID(as_uuid=True), ForeignKey("file.id"))
     file = relationship("File", back_populates="shares")
@@ -96,7 +96,7 @@ class Upload(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     created = Column(DateTime, server_default=func.now())
-    updated = Column(DateTime, onupdate=func.now(), nullable=True)
+    updated = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
     key = Column(String, nullable=False)
     expiry = Column(DateTime)
