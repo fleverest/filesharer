@@ -9,7 +9,3 @@ engine.Base.metadata.create_all(bind=engine.engine)
 app = FastAPI(dependencies=[])
 
 app.include_router(graphql_app, prefix="/gql")
-
-@app.get("/")
-async def root() -> dict[str, str]:
-    return {"message": "Hello World"}
