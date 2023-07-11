@@ -9,6 +9,11 @@ from fileshare.settings import settings
 GenericType = TypeVar("GenericType")
 
 
+class PaginationError(Exception):
+    """Raised when pagination is unsuccessful."""
+    def __init__(self, message: str):
+        self.message = message
+
 def reverse_ordering(ordering_tuple: list[str]):
     """
     Given an order_by tuple such as `('-created', 'uuid')` reverse the
@@ -63,7 +68,7 @@ class CursorPaginator:
 
     def __init__(self, queryset: Query, ordering: list[str]):
         if not ordering:
-            raise ValueError("Ordering must be applied for cursor pagination.")
+            raise PaginationError("Ordering must be applied for cursor pagination.")
         self.queryset = queryset.order_by(*ordering)
         self.ordering = ordering
 
@@ -79,7 +84,7 @@ class CursorPaginator:
         if page_size is None:
             page_size = settings.graphql.default_page_size
         if page_size > settings.graphql.pagination_limit:
-            raise ValueError("Exceeded maximum pagination limit.")
+            raise PaginationError("Exceeded maximum pagination limit.")
 
         if after is not None:
             qs = self.apply_cursor(after, qs)
@@ -89,7 +94,7 @@ class CursorPaginator:
             qs = qs[: first + 1]
         if last is not None:
             if first is not None:
-                raise ValueError("Cannot process first and last.")
+                raise PaginationError("Cannot process both 'first' and 'last' ranges in the same query.")
             qs = qs.order_by(*reverse_ordering(self.ordering))[: last + 1]
 
         qs = qs.all()
@@ -117,8 +122,6 @@ class CursorPaginator:
 
         filtering = Q()
         q_equality = {}
-
-        position_values = [Value(pos, output_field=TextField()) for pos in position]
 
         for ordering, value in zip(self.ordering, position_values):
             is_reversed = ordering.startswith("-")
