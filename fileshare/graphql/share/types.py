@@ -28,7 +28,7 @@ class ShareType:
     created: datetime
     updated: datetime
     key: str
-    expiry: datetime
+    expiry: datetime | None
     download_limit: int
     download_count: int
     file: Annotated["FileType", strawberry.lazy("fileshare.graphql.file.types")] = strawberry.field(resolver=resolve_file)
