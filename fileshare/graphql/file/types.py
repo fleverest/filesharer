@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class FileType:
     id: UUID
     created: datetime
-    updated: datetime | None
+    updated: datetime
     active: bool
     file_name: str
     share_count: int
