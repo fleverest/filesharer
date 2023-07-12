@@ -23,7 +23,6 @@ class FileFilterInput:
 @strawberry.enum
 class FileSortField(Enum):
     FILE_NAME      = ["object_name", "updated", "created"]
-    DOWNLOADS      = ["downloads", "updated", "created"]
     CREATED        = ["created", "updated"]
     UPDATED        = ["updated", "created"]
     SHARE_COUNT    = ["share_count", "updated", "created"]
@@ -35,7 +34,7 @@ class FileSortInput:
     field: FileSortField
 
     @property
-    def items(self) -> list[str]:
+    def items(self):
         args = []
         order = desc if self.direction.value == "desc" else asc
         for col in self.field.value:
