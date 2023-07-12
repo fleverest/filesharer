@@ -9,7 +9,7 @@ from fileshare.database.engine import get_db
 from fileshare.database.models import File, Share
 
 from fileshare.graphql.file.types import FileNotFoundError, FileType
-from fileshare.graphql.share.types import ShareType, AddShareError, RemoveShareError, RemoveSharesResult
+from fileshare.graphql.share.types import EditShareError, ShareType, AddShareError, RemoveShareError, RemoveSharesResult
 
 
 @strawberry.type
@@ -73,3 +73,40 @@ class ShareMutation:
             session.commit()
 
         return RemoveSharesResult(removed=removed, errors=errors)
+
+    @strawberry.mutation
+    def edit_share(
+        self,
+        info: Info,
+        id: UUID | None = None,
+        key: str | None = None,
+        new_expiry: datetime | None = None,
+        new_download_limit: int | None = None,
+        new_key: str | None = None
+    ) -> ShareType | EditShareError:
+
+        session = next(get_db())
+        if id is not None:
+            if key is not None:
+                return EditShareError(code="edit_share_malformed_request", message="Shares can only be selected for editing via key or id, not both.")
+            share = session.query(Share).filter(Share.id==id).first()
+        elif key is not None:
+            share = session.query(Share).filter(Share.key==key).first()
+        else:
+            return EditShareError(code="edit_share_malformed_request", message="Shares can only be selected for editing via key or id.")
+
+        if share is None:
+            if id is not None:
+                return EditShareError(code="share_not_found", message=f"No share found with {id=}.")
+            if key is not None:
+                return EditShareError(code="share_not_found", message=f"No share found with {key=}.")
+        if new_expiry is not None:
+            share.expiry = new_expiry
+        if new_download_limit is not None:
+            share.download_limit = new_download_limit
+        if new_key is not None:
+            share.key = new_key
+        session.commit()
+
+        return ShareType.from_instance(share)
+
