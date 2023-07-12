@@ -67,3 +67,24 @@ class ShareQuery:
             return ShareType(**share.as_dict())
         else:
             return ShareNotFoundError(code="share_not_found", message=f"Could not find share with given ID and/or key.")
+
+    @strawberry.field
+    def shares(
+        self,
+        info: Info,
+        filter: ShareFilterInput | None = None,
+        sort: ShareSortInput | None = None,
+        after: str | None = None,
+        first: int | None = None,
+        before: str | None = None,
+        last: int | None = None
+    ) -> CountableConnection[ShareType] | PaginationError:
+
+        session = next(get_db())
+
+        queryset = session.query(Share)
+        if filter is not None:
+            queryset = apply_share_filters(queryset, filter)
+        queryset = apply_share_sort(queryset, sort)
+
+        return get_countable_connection(queryset, before, after, first, last)
