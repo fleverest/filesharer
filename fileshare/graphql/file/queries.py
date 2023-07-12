@@ -37,7 +37,7 @@ def apply_file_filters(q: Query, filters: FileFilterInput | None) -> Query:
 
 def apply_file_sort(q: Query, sort: FileSortInput | None) -> Query:
     if not sort:
-        sort = FileSortInput(direction=OrderDirection.ASC, field=FileSortField.CREATED)
+        sort = FileSortInput(direction=OrderDirection.DESC, field=FileSortField.UPDATED)
 
     return q.order_by(*sort.items)
 
