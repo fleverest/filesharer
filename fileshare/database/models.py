@@ -77,7 +77,7 @@ class Share(Base):
     created = Column(DateTime, server_default=func.now())
     updated = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
-    file_id = Column(UUID(as_uuid=True), ForeignKey("file.id"))
+    file_id = Column(UUID(as_uuid=True), ForeignKey("file.id", ondelete="CASCADE"))
     file = relationship("File", back_populates="shares")
 
     key = Column(String, nullable=False, unique=True)
