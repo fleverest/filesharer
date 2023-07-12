@@ -44,3 +44,32 @@ class ShareMutation:
                 return AddShareError(code="add_share_unknown_error", message="Could not add share: unknown database integrity error.")
         return ShareType.from_instance(db_share)
 
+    @strawberry.mutation
+    def remove_shares(
+        self,
+        info: Info,
+        ids: list[UUID] | None,
+        keys: list[str] | None,
+    ) -> RemoveSharesResult:
+
+        session = next(get_db())
+        removed = []
+        errors = []
+
+        if ids is not None:
+            if keys is not None:
+                for _ in ids + keys:
+                    errors.append(RemoveShareError(code="remove_shares_malformed_request", message="Shares can only be removed by ID or by key, not both."))
+            shares = session.query(Share).filter(Share.id.in_(ids)).all()
+        elif keys is not None:
+            shares = session.query(Share).filter(Share.key.in_(keys)).all()
+        else:
+            errors.append(RemoveShareError(code="remove_shares_malformed_request", message="Shares must be removed by ID or key."))
+            return RemoveSharesResult(removed=removed, errors=errors)
+
+        for share in shares:
+            session.delete(share)
+            removed.append(ShareType.from_instance(share))
+            session.commit()
+
+        return RemoveSharesResult(removed=removed, errors=errors)

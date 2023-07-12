@@ -60,5 +60,5 @@ class RemoveShareError(ErrorType):
 
 @strawberry.type
 class RemoveSharesResult:
-    shares: list[ShareType]
+    removed: list[ShareType]
     errors: list[RemoveShareError]
