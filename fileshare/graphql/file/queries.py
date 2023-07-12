@@ -56,7 +56,7 @@ class FileQuery:
         session = next(get_db())
         file = session.query(File).filter(File.id == id).first()
         if file:
-            return FileType(**file.as_dict())
+            return FileType.from_instance(file)
         else:
             return FileNotFoundError(code="file_not_found", message=f"Could not find file with ID '{str(id)}'.")
 
@@ -80,4 +80,4 @@ class FileQuery:
             queryset = apply_file_filters(queryset, filter)
         queryset = apply_file_sort(queryset, sort)
 
-        return get_countable_connection(queryset, before, after, first, last)
+        return get_countable_connection(queryset, FileType.from_instance, before, after, first, last)

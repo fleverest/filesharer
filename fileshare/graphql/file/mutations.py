@@ -4,8 +4,6 @@ from strawberry.file_uploads import Upload
 from psycopg2.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
 
-from io import BytesIO
-
 from fileshare.database.engine import get_db
 from fileshare.database.models import File
 from fileshare.storage.minio import FileDeleteError, storage
@@ -37,7 +35,7 @@ class FileMutation:
                 session.add(db_file)
                 session.flush()
                 session.refresh(db_file)
-                added.append(FileType(**db_file.as_dict()))
+                added.append(FileType.from_instance(db_file))
                 storage.put(name, file.file, file.size) # noqa
                 session.commit()
             except FilePutError as e:
@@ -89,7 +87,7 @@ class FileMutation:
         try:
             for file in files:
                 session.delete(file)
-                removed.append(FileType(**file.as_dict()))
+                removed.append(FileType.from_instance(file))
                 storage.delete([str(file.object_name)])
                 session.commit()
             for filename in filenames:

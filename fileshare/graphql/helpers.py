@@ -1,12 +1,11 @@
+import re
 from base64 import b64encode, b64decode
 from sqlakeyset import BadBookmark, get_page, unserialize_bookmark
 from sqlalchemy.orm import Query
 
-from typing import Any
+from typing import Any, Callable
 
 from fileshare.settings import settings
-from fileshare.graphql.file.types import FileType
-from fileshare.graphql.share.types import ShareType
 from fileshare.graphql.types import CountableConnection, Edge, PageInfo, PaginationError
 
 
@@ -20,10 +19,11 @@ def from_b64(cursor: str) -> str:
 
 def get_countable_connection(
     queryset: Query,
+    resolve_node: Callable,
     before: str | None = None,
     after: str | None = None,
     first: int | None = None,
-    last: int | None = None
+    last: int | None = None,
     ) -> CountableConnection[Any] | PaginationError:
 
     if after is not None:
@@ -90,8 +90,8 @@ def get_countable_connection(
         ),
         edges=[
             Edge(
-                node=FileType(**file.as_dict()),
+                node=resolve_node(node),
                 cursor=to_b64(bookmark)
-            ) for bookmark, file in bookmark_items
+            ) for bookmark, node in bookmark_items
         ]
     )

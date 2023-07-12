@@ -4,7 +4,6 @@ from uuid import UUID
 from strawberry.types import Info
 
 from sqlalchemy.orm import Query
-from sqlalchemy.sql import func
 
 from fileshare.database.engine import get_db
 from fileshare.database.models import Share
@@ -12,6 +11,7 @@ from fileshare.graphql.share.inputs import ShareFilterInput, ShareSortField, Sha
 from fileshare.graphql.share.types import ShareType, ShareNotFoundError
 from fileshare.graphql.helpers import get_countable_connection
 from fileshare.graphql.types import CountableConnection, OrderDirection, PaginationError
+
 
 def apply_share_filters(q: Query, filters: ShareFilterInput | None) -> Query:
     """Applies graphql filter input to the sqlalchemy queryset"""
@@ -64,7 +64,7 @@ class ShareQuery:
             q = q.filter(Share.key == key)
         share = q.first()
         if share:
-            return ShareType(**share.as_dict())
+            return ShareType.from_instance(share)
         else:
             return ShareNotFoundError(code="share_not_found", message=f"Could not find share with given ID and/or key.")
 
@@ -87,4 +87,4 @@ class ShareQuery:
             queryset = apply_share_filters(queryset, filter)
         queryset = apply_share_sort(queryset, sort)
 
-        return get_countable_connection(queryset, before, after, first, last)
+        return get_countable_connection(queryset, ShareType.from_instance, before, after, first, last)

@@ -7,8 +7,6 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils.types.ts_vector import TSVectorType
 
 from fileshare.database.engine import Base
-
-
 def to_tsvector_ix(*columns):
     s = " || ' ' || ".join(columns)
     return func.to_tsvector(literal('english'), text(s))
@@ -67,7 +65,6 @@ class File(Base):
             "active": self.active,
             "share_count": self.share_count,
             "download_count": self.download_count,
-            "shares": self.shares,
         }
 
 class Share(Base):
@@ -83,15 +80,14 @@ class Share(Base):
     file_id = Column(UUID(as_uuid=True), ForeignKey("file.id"))
     file = relationship("File", back_populates="shares")
 
-    key = Column(String, nullable=False)
+    key = Column(String, nullable=False, unique=True)
     expiry = Column(DateTime)
-    download_limit = Column(Integer, nullable=False)
-    download_count = Column(Integer, nullable=False)
+    download_limit = Column(Integer, server_default="0", nullable=False)
+    download_count = Column(Integer, server_default="0", nullable=False)
 
     def as_dict(self):
         return {
             "id": self.id,
-            "file": self.file,
             "created": self.created,
             "updated": self.updated,
             "key": self.key,
