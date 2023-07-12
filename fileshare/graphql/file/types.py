@@ -41,7 +41,3 @@ class RemoveFileError(ErrorType):
 class RemoveFilesResult:
     removed: list[FileType]
     errors: list[RemoveFileError]
-
-@strawberry.type
-class PaginationError(ErrorType):
-    pass

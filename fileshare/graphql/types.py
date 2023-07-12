@@ -61,3 +61,8 @@ class ErrorType:
 
     code: str
     message: str
+
+@strawberry.type
+class PaginationError(ErrorType):
+    """A type for representing errors raised during pagination"""
+    pass

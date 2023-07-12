@@ -1,21 +1,97 @@
-from sqlalchemy.inspection import inspect
-import re
+from base64 import b64encode, b64decode
+from sqlakeyset import BadBookmark, get_page, unserialize_bookmark
+from sqlalchemy.orm import Query
 
-def convert_camel_case(name):
-    pattern = re.compile(r'(?<!^)(?=[A-Z])')
-    name = pattern.sub('_', name).lower()
-    return name
+from typing import Any
 
-def get_only_selected_fields(db_baseclass_name, info):
-    db_relations_fields = inspect(db_baseclass_name).relationships.keys()
-    selected_fields = [convert_camel_case(field.name)  for field in info.selected_fields[0].selections if field.name not in db_relations_fields]
-    return selected_fields
+from fileshare.settings import settings
+from fileshare.graphql.file.types import FileType
+from fileshare.graphql.share.types import ShareType
+from fileshare.graphql.types import CountableConnection, Edge, PageInfo, PaginationError
 
-def get_valid_data(model_data_object, model_class):
-    data_dict = {}
-    for column in model_class.__table__.columns:
+
+def to_b64(cursor: str) -> str:
+    """Encodes a cursor string as base64"""
+    return b64encode(cursor.encode("utf-8")).decode("ascii")
+
+def from_b64(cursor: str) -> str:
+    """Decodes a base64 cursor string"""
+    return b64decode(cursor.encode("ascii")).decode("utf-8")
+
+def get_countable_connection(
+    queryset: Query,
+    before: str | None = None,
+    after: str | None = None,
+    first: int | None = None,
+    last: int | None = None
+    ) -> CountableConnection[Any] | PaginationError:
+
+    if after is not None:
+        if before is not None:
+            return PaginationError(code="paging_direction_conflict", message="Results can only be fetched before OR after a cursor, not both.")
+        if last is not None:
+            return PaginationError(code="page_direction_conflict", message="Results can only be fetched first-after or last-before.")
+        if first is None:
+            first = settings.graphql.default_page_size
+        elif first > settings.graphql.pagination_limit or first <= 0:
+            return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
         try:
-            data_dict[column.name] = getattr(model_data_object,column.name)
-        except:
-            pass
-    return data_dict
+            page = get_page(
+                queryset,
+                per_page=first,
+                after=unserialize_bookmark(from_b64(after)).place
+            )
+        except BadBookmark:
+            return PaginationError(code="cursor_invalid", message=f"Cursor could not be deserialized.")
+
+    elif before is not None:
+        if after is not None:
+            return PaginationError(code="paging_direction_conflict", message="Results can only be fetched before OR after a cursor, not both.")
+        if first is not None:
+            return PaginationError(code="page_direction_conflict", message="Results can only be fetched first-after or last-before.")
+        if last is None:
+            last = settings.graphql.default_page_size
+        elif last > settings.graphql.pagination_limit or last <= 0:
+            return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
+        try:
+            page = get_page(
+                queryset,
+                per_page=last,
+                before=unserialize_bookmark(from_b64(before)).place
+            )
+        except BadBookmark:
+            return PaginationError(code="cursor_invalid", message="Cursor could not be deserialized.")
+
+    else:
+        # Default to first-after if neither after nor before cursors are specified
+        if last is not None:
+            return PaginationError(code="page_direction_conflict", message="Results can only be fetched first-after the start of the result set.")
+        if first is None:
+            first = settings.graphql.default_page_size
+        elif first > settings.graphql.pagination_limit or first <= 0:
+            return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
+        try:
+            page = get_page(
+                queryset,
+                per_page=first
+            )
+        except BadBookmark:
+            return PaginationError(code="cursor_invalid", message=f"Cursor could not be deserialized.")
+
+    bookmark_items = list(page.paging.bookmark_items())
+
+    return CountableConnection(
+        count=len(page),
+        page_info=PageInfo(
+            has_next_page=page.paging.has_next,
+            has_previous_page=page.paging.has_previous,
+            start_cursor=to_b64(bookmark_items[0][0]) if bookmark_items else None,
+            end_cursor=to_b64(bookmark_items[-1][0]) if bookmark_items else None
+        ),
+        edges=[
+            Edge(
+                node=FileType(**file.as_dict()),
+                cursor=to_b64(bookmark)
+            ) for bookmark, file in bookmark_items
+        ]
+    )
