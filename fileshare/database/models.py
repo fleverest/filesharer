@@ -88,6 +88,18 @@ class Share(Base):
     download_limit = Column(Integer, nullable=False)
     download_count = Column(Integer, nullable=False)
 
+    def as_dict(self):
+        return {
+            "id": self.id,
+            "file": self.file,
+            "created": self.created,
+            "updated": self.updated,
+            "key": self.key,
+            "expiry": self.expiry,
+            "download_count": self.download_count,
+            "download_limit": self.download_limit,
+        }
+
 class Upload(Base):
 
     """A Model for upload keys"""

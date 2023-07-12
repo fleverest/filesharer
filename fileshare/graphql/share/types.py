@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 @strawberry.type
 class ShareType:
     id: UUID
-    created = datetime
-    updated = datetime | None
+    created: datetime
+    updated: datetime
     file: Annotated["FileType", strawberry.lazy("fileshare.graphql.file.types")]
     key: str
     expiry: datetime
@@ -20,13 +20,12 @@ class ShareType:
     download_count: int
 
 @strawberry.type
-class AddShareError(ErrorType):
+class ShareNotFoundError(ErrorType):
     pass
 
 @strawberry.type
-class AddShareResult:
-    share: ShareType
-    errors: list[AddShareError]
+class AddShareError(ErrorType):
+    pass
 
 @strawberry.type
 class RemoveShareError(ErrorType):
