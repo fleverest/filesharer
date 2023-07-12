@@ -4,12 +4,12 @@ import strawberry
 from uuid import UUID
 from strawberry.types import Info
 from base64 import b64encode, b64decode
-from sqlakeyset import get_page, unserialize_bookmark
+from sqlakeyset import get_page, unserialize_bookmark, BadBookmark
 
 from fileshare.database.engine import get_db
 from fileshare.database.models import File
 from fileshare.graphql.file.inputs import FileFilterInput, FileSortField, FileSortInput
-from fileshare.graphql.file.types import FileType, FileNotFoundError
+from fileshare.graphql.file.types import FileType, FileNotFoundError, PaginationError
 from fileshare.graphql.types import CountableConnection, OrderDirection, PageInfo, Edge
 from fileshare.settings import settings
 
@@ -75,8 +75,10 @@ class FileQuery:
         filter: FileFilterInput | None = None,
         sort: FileSortInput | None = None,
         after: str | None = None,
+        first: int | None = None,
         before: str | None = None,
-    ) -> CountableConnection[FileType]:
+        last: int | None = None
+    ) -> CountableConnection[FileType] | PaginationError:
 
         session = next(get_db())
 
@@ -86,17 +88,39 @@ class FileQuery:
         queryset = apply_file_sort(queryset, sort)
 
         if after:
-            page = get_page(
-                queryset,
-                per_page=settings.graphql.default_page_size,
-                after=unserialize_bookmark(from_b64(after)).place
-            )
+            if before is not None:
+                return PaginationError(code="paging_direction_conflict", message="Results can only be fetched before OR after a cursor, not both.")
+            if first is None:
+                first = settings.graphql.default_page_size
+            elif first > settings.graphql.pagination_limit or first <= 0:
+                return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
+            if last is not None:
+                return PaginationError(code="page_direction_conflict", message="Results can only be fetched first-after or last-before.")
+            try:
+                page = get_page(
+                    queryset,
+                    per_page=first,
+                    after=unserialize_bookmark(from_b64(after)).place
+                )
+            except BadBookmark:
+                return PaginationError(code="cursor_invalid", message=f"Cursor could not be deserialized.")
         elif before:
-            page = get_page(
-                queryset,
-                per_page=settings.graphql.default_page_size,
-                before=unserialize_bookmark(from_b64(before)).place
-            )
+            if after is not None:
+                return PaginationError(code="paging_direction_conflict", message="Results can only be fetched before OR after a cursor, not both.")
+            if last is None:
+                last = settings.graphql.default_page_size
+            elif last < settings.graphql.pagination_limit or last <=0:
+                return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
+            if first is not None:
+                return PaginationError(code="page_direction_conflict", message="Results can only be fetched first-after or last-before.")
+            try:
+                page = get_page(
+                    queryset,
+                    per_page=last,
+                    before=unserialize_bookmark(from_b64(before)).place
+                )
+            except BadBookmark:
+                return PaginationError(code="cursor_invalid", message="Cursor could not be deserialized.")
         else:
             page = get_page(
                 queryset,
@@ -109,8 +133,8 @@ class FileQuery:
             page_info=PageInfo(
                 has_next_page=page.paging.has_next,
                 has_previous_page=page.paging.has_previous,
-                start_cursor=to_b64(bookmark_items[0][0]),
-                end_cursor=to_b64(bookmark_items[-1][0])
+                start_cursor=to_b64(bookmark_items[0][0]) if bookmark_items else None,
+                end_cursor=to_b64(bookmark_items[-1][0]) if bookmark_items else None
             ),
             edges=[
                 Edge(
