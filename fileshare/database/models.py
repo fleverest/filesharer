@@ -24,7 +24,7 @@ class File(Base):
     object_name = Column(String, nullable=False, unique=True)
     active = Column(Boolean, default=True)
 
-    shares = relationship("Share", cascade="all, delete", passive_deletes=True, back_populates="file")
+    shares = relationship("Share", cascade="all, delete", passive_deletes=True, back_populates="file", lazy="dynamic")
 
     tsvector = Column(TSVectorType("tsvector", regconfig="english"), Computed("to_tsvector('english', regexp_replace(\"object_name\", '[^\w]+', ' ', 'g'))", persisted=True))
 
@@ -38,7 +38,7 @@ class File(Base):
 
     @hybrid_property
     def share_count(self):
-        return len(self.shares)
+        return self.shares.count()
 
     @share_count.expression
     def share_count(cls):
@@ -56,16 +56,6 @@ class File(Base):
                 .where(Share.file_id == cls.id)\
                 .label("download_count")
 
-    def as_dict(self):
-        return {
-            "id": self.id,
-            "created": self.created,
-            "updated": self.updated,
-            "file_name": self.object_name,
-            "active": self.active,
-            "share_count": self.share_count,
-            "download_count": self.download_count,
-        }
 
 class Share(Base):
 
@@ -85,16 +75,6 @@ class Share(Base):
     download_limit = Column(Integer, server_default="0", nullable=False)
     download_count = Column(Integer, server_default="0", nullable=False)
 
-    def as_dict(self):
-        return {
-            "id": self.id,
-            "created": self.created,
-            "updated": self.updated,
-            "key": self.key,
-            "expiry": self.expiry,
-            "download_count": self.download_count,
-            "download_limit": self.download_limit,
-        }
 
 class Upload(Base):
 

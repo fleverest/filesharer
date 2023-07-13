@@ -1,4 +1,4 @@
-import re
+import binascii
 from base64 import b64encode, b64decode
 from sqlakeyset import BadBookmark, get_page, unserialize_bookmark
 from sqlalchemy.orm import Query
@@ -9,13 +9,20 @@ from fileshare.settings import settings
 from fileshare.graphql.types import CountableConnection, Edge, PageInfo, PaginationError
 
 
+class CursorB64DecodeError(Exception):
+    """An exception to be raised when a cursor passed is invalid b64"""
+    pass
+
 def to_b64(cursor: str) -> str:
     """Encodes a cursor string as base64"""
     return b64encode(cursor.encode("utf-8")).decode("ascii")
 
 def from_b64(cursor: str) -> str:
     """Decodes a base64 cursor string"""
-    return b64decode(cursor.encode("ascii")).decode("utf-8")
+    try:
+        return b64decode(cursor.encode("ascii")).decode("utf-8")
+    except binascii.Error:
+        raise CursorB64DecodeError(f"Cursor '{cursor}' is not a valid b64-encoded string.")
 
 def get_countable_connection(
     queryset: Query,
@@ -41,7 +48,7 @@ def get_countable_connection(
                 per_page=first,
                 after=unserialize_bookmark(from_b64(after)).place
             )
-        except BadBookmark:
+        except (BadBookmark, CursorB64DecodeError) :
             return PaginationError(code="cursor_invalid", message=f"Cursor could not be deserialized.")
 
     elif before is not None:

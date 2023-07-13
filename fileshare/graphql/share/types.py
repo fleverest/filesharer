@@ -17,7 +17,7 @@ def resolve_file(root: "ShareType", info: Info) -> Annotated["FileType", strawbe
     session = next(get_db())
     db_file = session.query(File).filter(File.id==root.file_id).first()
     if db_file:
-        return FileType(**db_file.as_dict())
+        return FileType.from_instance(db_file)
     else:
         return FileType(id=UUID(), created=datetime.now(), updated=datetime.now(), active=False, file_name="FILE NOT FOUND", share_count=0, download_count=0)
 
