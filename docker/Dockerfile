@@ -1,7 +1,6 @@
 FROM python:3-alpine
 
 COPY --chown=fileshare:fileshare docker/entrypoint /entrypoint
-COPY --chown=fileshare:fileshare docker/start /start
 COPY --chown=fileshare:fileshare . /app
 
 WORKDIR /app
@@ -16,10 +15,10 @@ RUN set -ex && \
       export PATH=\$PATH:/home/fileshare/.local/bin && \
       pipenv install --system --deploy" && \
     apk del .build-deps gcc musl-dev && \
-    chmod +x /entrypoint /start
+    chmod +x /entrypoint
 
 USER fileshare
 
 ENTRYPOINT ["/entrypoint"]
 
-CMD ["/start"]
+CMD ["python", "/app/init.py"]

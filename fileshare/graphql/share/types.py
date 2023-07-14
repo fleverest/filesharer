@@ -1,10 +1,11 @@
+from sqlalchemy import select
 import strawberry
 from datetime import datetime
 from uuid import UUID
 from typing import Annotated, TYPE_CHECKING
 
 from strawberry.types import Info
-from fileshare.database.engine import get_db
+from fileshare.database.engine import get_session
 from fileshare.database.models import File, Share
 
 from fileshare.graphql.types import ErrorType
@@ -12,14 +13,16 @@ from fileshare.graphql.types import ErrorType
 if TYPE_CHECKING:
     from fileshare.graphql.file.types import FileType
 
-def resolve_file(root: "ShareType", info: Info) -> Annotated["FileType", strawberry.lazy("fileshare.graphql.file.types")]:
+async def resolve_file(root: "ShareType", info: Info) -> Annotated["FileType", strawberry.lazy("fileshare.graphql.file.types")]:
     from fileshare.graphql.file.types import FileType
-    session = next(get_db())
-    db_file = session.query(File).filter(File.id==root.file_id).first()
-    if db_file:
-        return FileType.from_instance(db_file)
-    else:
-        return FileType(id=UUID(), created=datetime.now(), updated=datetime.now(), active=False, file_name="FILE NOT FOUND", share_count=0, download_count=0)
+    async with get_session() as session:
+        query_files = select(File).filter(File.id==root.file_id)
+        result = await session.execute(query_files)
+        file = result.scalar()
+        if file:
+            return FileType.from_instance(file)
+        else:
+            return FileType(id=UUID(), created=datetime.now(), updated=datetime.now(), active=False, file_name="FILE NOT FOUND", share_count=0, download_count=0)
 
 @strawberry.type
 class ShareType:

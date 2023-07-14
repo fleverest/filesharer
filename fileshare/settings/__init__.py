@@ -1,4 +1,4 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 from fileshare.settings.database import DatabaseSettings
 from fileshare.settings.minio import MinioSettings

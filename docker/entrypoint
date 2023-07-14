@@ -17,19 +17,23 @@ postgres_ready() {
 python << END
 
 import sys
-import psycopg2
+import asyncio
+import asyncpg
 
-try:
-    psycopg2.connect(
-        host="${DATABASE__HOSTNAME}",
-        port="${DATABASE__PORT}",
-        dbname="${DATABASE__DATABASE}",
-        user="${DATABASE__USERNAME}",
-        password="${DATABASE__PASSWORD}",
-    )
-except psycopg2.OperationalError:
-    sys.exit(-1)
-sys.exit(0)
+async def main():
+    try:
+        conn = await asyncpg.connect(
+            host="${DATABASE__HOSTNAME}",
+            port="${DATABASE__PORT}",
+            database="${DATABASE__DATABASE}",
+            user="${DATABASE__USERNAME}",
+            password="${DATABASE__PASSWORD}",
+        )
+        await conn.close()
+    except:
+        sys.exit(-1)
+
+asyncio.get_event_loop().run_until_complete(main())
 
 END
 }

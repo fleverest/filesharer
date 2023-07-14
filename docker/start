@@ -1,3 +1,0 @@
-#!/bin/ash
-
-/home/fileshare/.local/bin/uvicorn init:app --port 80 --host 0.0.0.0

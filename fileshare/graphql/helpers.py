@@ -1,9 +1,12 @@
 import binascii
 from base64 import b64encode, b64decode
-from sqlakeyset import BadBookmark, get_page, unserialize_bookmark
-from sqlalchemy.orm import Query
+from sqlakeyset import BadBookmark, unserialize_bookmark
+from sqlakeyset.asyncio import select_page
 
-from typing import Any, Callable
+from typing import Any, Callable, Tuple
+from sqlakeyset.sqla import AsyncSession
+
+from sqlalchemy import Select
 
 from fileshare.settings import settings
 from fileshare.graphql.types import CountableConnection, Edge, PageInfo, PaginationError
@@ -24,8 +27,9 @@ def from_b64(cursor: str) -> str:
     except binascii.Error:
         raise CursorB64DecodeError(f"Cursor '{cursor}' is not a valid b64-encoded string.")
 
-def get_countable_connection(
-    queryset: Query,
+async def get_countable_connection(
+    session: AsyncSession,
+    query: Select[Tuple[Any]],
     resolve_node: Callable,
     before: str | None = None,
     after: str | None = None,
@@ -43,8 +47,9 @@ def get_countable_connection(
         elif first > settings.graphql.pagination_limit or first <= 0:
             return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
         try:
-            page = get_page(
-                queryset,
+            page = await select_page(
+                session,
+                query,
                 per_page=first,
                 after=unserialize_bookmark(from_b64(after)).place
             )
@@ -61,8 +66,9 @@ def get_countable_connection(
         elif last > settings.graphql.pagination_limit or last <= 0:
             return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
         try:
-            page = get_page(
-                queryset,
+            page = await select_page(
+                session,
+                query,
                 per_page=last,
                 before=unserialize_bookmark(from_b64(before)).place
             )
@@ -78,12 +84,14 @@ def get_countable_connection(
         elif first > settings.graphql.pagination_limit or first <= 0:
             return PaginationError(code="page_size_invalid", message=f"Results are limited to between 0 and {settings.graphql.pagination_limit} entries.")
         try:
-            page = get_page(
-                queryset,
+            page = await select_page(
+                session,
+                query,
                 per_page=first
             )
         except BadBookmark:
             return PaginationError(code="cursor_invalid", message=f"Cursor could not be deserialized.")
+
 
     bookmark_items = list(page.paging.bookmark_items())
 
@@ -99,6 +107,6 @@ def get_countable_connection(
             Edge(
                 node=resolve_node(node),
                 cursor=to_b64(bookmark)
-            ) for bookmark, node in bookmark_items
+            ) for bookmark, (node,) in bookmark_items
         ]
     )

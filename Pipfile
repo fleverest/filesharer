@@ -9,10 +9,11 @@ sqlalchemy = "*"
 minio = "*"
 strawberry-graphql = "*"
 uvicorn = "*"
-psycopg2 = "*"
 python-multipart = "*"
 sqlalchemy-utils = "*"
 sqlakeyset = "*"
+asyncpg = "*"
+pydantic-settings = "*"
 
 [dev-packages]
 

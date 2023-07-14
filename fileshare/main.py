@@ -1,11 +1,7 @@
-from fastapi import FastAPI # , Depends
+from fastapi import FastAPI
 
-#from fileshare.dependencies import example
-from fileshare.database import engine
 from fileshare.graphql.schema import graphql_app
 
-engine.Base.metadata.create_all(bind=engine.engine)
 
 app = FastAPI(dependencies=[])
-
 app.include_router(graphql_app, prefix="/gql")

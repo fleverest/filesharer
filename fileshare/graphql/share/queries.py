@@ -1,11 +1,11 @@
+from typing import Tuple
+from sqlalchemy import Select, select
 import strawberry
 
 from uuid import UUID
 from strawberry.types import Info
 
-from sqlalchemy.orm import Query
-
-from fileshare.database.engine import get_db
+from fileshare.database.engine import get_session
 from fileshare.database.models import Share
 from fileshare.graphql.share.inputs import ShareFilterInput, ShareSortField, ShareSortInput
 from fileshare.graphql.share.types import ShareType, ShareNotFoundError
@@ -13,7 +13,7 @@ from fileshare.graphql.helpers import get_countable_connection
 from fileshare.graphql.types import CountableConnection, OrderDirection, PaginationError
 
 
-def apply_share_filters(q: Query, filters: ShareFilterInput | None) -> Query:
+def apply_share_filters(q: Select[Tuple[Share]], filters: ShareFilterInput | None) -> Select[Tuple[Share]]:
     """Applies graphql filter input to the sqlalchemy queryset"""
     if not filters:
         return q
@@ -37,7 +37,7 @@ def apply_share_filters(q: Query, filters: ShareFilterInput | None) -> Query:
 
     return q
 
-def apply_share_sort(q: Query, sort: ShareSortInput | None) -> Query:
+def apply_share_sort(q: Select[Tuple[Share]], sort: ShareSortInput | None) -> Select[Tuple[Share]]:
     if not sort:
         sort = ShareSortInput(direction=OrderDirection.DESC, field=ShareSortField.UPDATED)
 
@@ -48,7 +48,7 @@ class ShareQuery:
     """A query class for Shares"""
 
     @strawberry.field
-    def share(
+    async def share(
         self,
         info: Info,
         id: UUID | None,
@@ -56,20 +56,21 @@ class ShareQuery:
     ) -> ShareType | ShareNotFoundError:
         if id is None and key is None:
             return ShareNotFoundError(code="share_not_found", message="Shares can only be looked up via ID or key.")
-        session = next(get_db())
-        q = session.query(Share)
-        if id is not None:
-            q = q.filter(Share.id == id)
-        if key is not None:
-            q = q.filter(Share.key == key)
-        share = q.first()
-        if share:
-            return ShareType.from_instance(share)
-        else:
-            return ShareNotFoundError(code="share_not_found", message=f"Could not find share with given ID and/or key.")
+        async with get_session() as session:
+            q = select(Share)
+            if id is not None:
+                q = q.filter(Share.id == id)
+            if key is not None:
+                q = q.filter(Share.key == key)
+            result = await session.execute(q)
+            share = result.scalar()
+            if share:
+                return ShareType.from_instance(share)
+            else:
+                return ShareNotFoundError(code="share_not_found", message=f"Could not find share with given ID and/or key.")
 
     @strawberry.field
-    def shares(
+    async def shares(
         self,
         info: Info,
         filter: ShareFilterInput | None = None,
@@ -80,11 +81,11 @@ class ShareQuery:
         last: int | None = None
     ) -> CountableConnection[ShareType] | PaginationError:
 
-        session = next(get_db())
+        async with get_session() as session:
 
-        queryset = session.query(Share)
-        if filter is not None:
-            queryset = apply_share_filters(queryset, filter)
-        queryset = apply_share_sort(queryset, sort)
+            share_query = select(Share)
+            if filter is not None:
+                share_query = apply_share_filters(share_query, filter)
+            share_query = apply_share_sort(share_query, sort)
 
-        return get_countable_connection(queryset, ShareType.from_instance, before, after, first, last)
+            return await get_countable_connection(session, share_query, ShareType.from_instance, before, after, first, last)
