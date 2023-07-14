@@ -62,6 +62,10 @@ class MinioStorage:
             prefix. The `recursive` indicates whether we should list recursively
             into sub-directories.
 
+        put(name, data, size) -- Uploads `data` directly to the storage backend
+            with filename `name`. `size` is an int representing the size of the
+            file.
+
         presigned_get(name, expires) -- Returns a presigned url for fetching
             `name` from the object store. The link will expire after a timedelta
             `expires`, or by default (when `expires==None`) the value of the
