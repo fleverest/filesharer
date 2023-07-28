@@ -1,4 +1,4 @@
-# Upload files
+# Add files
 
 Uploads files to the storage backend and track them in the database. The request must be a Multipart Form as follows:
 

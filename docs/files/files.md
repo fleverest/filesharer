@@ -1,4 +1,4 @@
-# List files
+# Files
 
 View files with filtering, sorting and pagination.
 

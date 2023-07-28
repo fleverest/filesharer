@@ -1,6 +1,6 @@
-# Query a single file
+# File
 
-Queries a single file by ID or by filename.
+View a single file by ID or by filename.
 
 Sample Query:
 ```gql
